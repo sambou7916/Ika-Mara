@@ -471,7 +471,7 @@ function FicheMembreContent({ numero }: { numero: string }) {
             {dixDerniersMouvements.map((op) => (
               <Link
                 key={op.id}
-                href={`/agent/recu/${op.id}`}
+                href={`/agent/recu?id=${op.id}`}
                 className="flex items-center justify-between p-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
                 <div className="space-y-0.5">
@@ -526,14 +526,18 @@ function FicheMembreContent({ numero }: { numero: string }) {
   );
 }
 
-export default function FicheMembrePage({
-  params,
-}: {
-  // Next.js 14 : params est un objet simple (et non une Promise comme en Next.js 15)
-  params: { numero: string };
-}) {
-  const { numero } = params;
+/** Numéro lu dans l'adresse côté navigateur (page statique, disponible hors ligne). */
+function FicheDepuisAdresse() {
+  const numero = useSearchParams().get("numero") ?? "";
+  return <FicheMembreContent numero={numero} />;
+}
 
+/**
+ * Fiche membre : /agent/fiche?numero=<numéro>
+ * Page statique : gardée sur le téléphone, elle s'ouvre hors connexion
+ * pour n'importe quel membre.
+ */
+export default function FicheMembrePage() {
   return (
     <Suspense
       fallback={
@@ -542,7 +546,7 @@ export default function FicheMembrePage({
         </div>
       }
     >
-      <FicheMembreContent numero={numero} />
+      <FicheDepuisAdresse />
     </Suspense>
   );
 }

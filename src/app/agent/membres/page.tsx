@@ -275,7 +275,7 @@ export default function ListeMembresPage() {
           {membresAffiches.map((m) => (
             <Link
               key={m.id}
-              href={`/agent/membres/${m.numero}`}
+              href={`/agent/fiche?numero=${m.numero}`}
               className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm transition-all active:scale-[0.99] hover:border-primary-300 hover:bg-primary-50/20"
             >
               <div className="flex items-center gap-3 min-w-0">

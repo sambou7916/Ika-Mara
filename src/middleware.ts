@@ -4,12 +4,16 @@ import { updateSession } from "@/lib/supabase/middleware";
 /**
  * Middleware Next.js — gestion de l'authentification et du contrôle d'accès selon le rôle.
  *
- * - /login, /agent/connexion, /api/* : publics (aucun appel réseau à Supabase ici)
+ * - /login, /api/* : publics (aucun appel réseau à Supabase ici)
+ * - /agent/* : publics côté serveur. L'espace agent fonctionne HORS LIGNE :
+ *   ses pages ne contiennent aucune donnée (tout vient de l'appareil) et sont
+ *   gardées sur le téléphone. Le contrôle d'accès est fait par le layout agent
+ *   (PIN vérifié localement, PBKDF2) et par /api/sync (jeton + appareil lié).
+ *   Une redirection serveur ici empêcherait de garder ces pages hors ligne.
  * - /admin/* : réservé au rôle 'admin' actif (redirection vers /login ou /agent)
- * - /agent/* : accessible aux agents (et aux admins)
  */
 
-const PUBLIC_PATHS = ["/login", "/agent/connexion", "/api/"];
+const PUBLIC_PATHS = ["/login", "/agent", "/api/"];
 
 function redirectToLogin(request: NextRequest, error: string) {
   const loginUrl = new URL("/login", request.url);

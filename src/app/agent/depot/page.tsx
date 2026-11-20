@@ -267,7 +267,7 @@ function NouveauDepotContent() {
       void onOutboxChange();
 
       // 7. Rediriger vers le reçu
-      router.push(`/agent/recu/${operationId}`);
+      router.push(`/agent/recu?id=${operationId}`);
     } catch (err) {
       console.error("[Depot] Erreur enregistrement :", err);
       setErreur(

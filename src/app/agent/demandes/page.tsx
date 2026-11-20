@@ -252,7 +252,7 @@ function DemandesContent() {
 
       // Redirection vers la fiche membre avec message de confirmation
       router.push(
-        `/agent/membres/${membre.numero}?toast=demande_enregistree&type=${typeOp}&montant=${montant}`
+        `/agent/fiche?numero=${membre.numero}&toast=demande_enregistree&type=${typeOp}&montant=${montant}`
       );
     } catch (err) {
       console.error("[Demandes] Erreur :", err);
@@ -269,7 +269,7 @@ function DemandesContent() {
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2">
           <Link
-            href={numero ? `/agent/membres/${numero}` : "/agent"}
+            href={numero ? `/agent/fiche?numero=${numero}` : "/agent"}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white border border-gray-200 text-gray-700 shadow-sm active:scale-95"
           >
             ‹

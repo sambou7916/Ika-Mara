@@ -363,7 +363,7 @@ export default function JournalAgentPage() {
                   return (
                     <Link
                       key={op.id}
-                      href={`/agent/recu/${op.id}`}
+                      href={`/agent/recu?id=${op.id}`}
                       className="flex items-center justify-between p-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                     >
                       <div className="space-y-0.5">

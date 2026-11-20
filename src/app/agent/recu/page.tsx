@@ -1,21 +1,37 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db/dexie";
 import { formatMontant, formatDateTime, libelleVolet } from "@/lib/utils/format";
 
-export default function RecuPage({
-  params,
-}: {
-  // Next.js 14 : params est un objet simple (et non une Promise comme en Next.js 15)
-  params: { id: string };
-}) {
-  const { id } = params;
+/**
+ * Reçu : /agent/recu?id=<uuid>
+ * Page statique (identifiant lu dans l'adresse côté navigateur) : elle est
+ * gardée sur le téléphone et s'ouvre hors connexion pour n'importe quel reçu.
+ */
+export default function RecuPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+        </div>
+      }
+    >
+      <RecuContenu />
+    </Suspense>
+  );
+}
+
+function RecuContenu() {
+  const id = useSearchParams().get("id") ?? "";
 
   // Charger l'opération, le membre, le statut d'outbox et calculer le numéro de reçu local
   const data = useLiveQuery(async () => {
+    if (!id) return null;
     const op = await db.operations.get(id);
     if (!op) return null;
 
