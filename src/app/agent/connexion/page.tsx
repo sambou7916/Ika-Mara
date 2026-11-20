@@ -256,14 +256,26 @@ function AgentConnexionContent() {
         });
 
         if (!syncResponse.ok) {
-          if (syncResponse.status === 403) {
+          const corps = (await syncResponse.json().catch(() => null)) as
+            | { code?: string; error?: string }
+            | null;
+          // Seule une vraie suspension efface l'appareil (règle : l'outbox n'est
+          // jamais vidée pour un autre motif).
+          if (corps?.code === "AGENT_SUSPENDU") {
             await purgeAgentData();
             await supabase.auth.signOut();
-            setError("Votre compte est suspendu côté serveur.");
+            setError("Votre compte est suspendu. Veuillez contacter votre administrateur.");
             setLoading(false);
             return;
           }
-          throw new Error("Échec du téléchargement du portefeuille");
+          await supabase.auth.signOut();
+          setError(
+            `Téléchargement du portefeuille impossible (code ${syncResponse.status}${
+              corps?.code ? ` · ${corps.code}` : ""
+            }). ${corps?.error ?? "Réessayez dans un instant."}`
+          );
+          setLoading(false);
+          return;
         }
 
         const syncData = await syncResponse.json();
@@ -389,9 +401,17 @@ function AgentConnexionContent() {
       router.push("/agent");
     } catch (err) {
       console.error("[Connexion] Erreur :", err);
-      setError(
-        err instanceof Error ? err.message : "Une erreur inattendue est survenue."
-      );
+      const brut = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      let message = "Une erreur inattendue est survenue.";
+      if (/Failed to fetch|NetworkError|Load failed/i.test(brut)) {
+        message = "Connexion internet interrompue. Vérifiez le réseau puis réessayez.";
+      } else if (/QuotaExceeded/i.test(brut)) {
+        message = "Mémoire du téléphone pleine : libérez de l'espace puis réessayez.";
+      } else if (/IDB|IndexedDB|Dexie|DataError|InvalidState|UnknownError/i.test(brut)) {
+        message =
+          "Le stockage local du navigateur est indisponible. Utilisez Chrome ou Safari (pas une navigation privée, ni le navigateur intégré de WhatsApp/Facebook).";
+      }
+      setError(`${message} (détail : ${brut.slice(0, 160)})`);
     } finally {
       setLoading(false);
     }
