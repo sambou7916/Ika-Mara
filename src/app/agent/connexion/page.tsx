@@ -208,6 +208,15 @@ function AgentConnexionContent() {
         if (authError || !authData.user) {
           if (authError?.message?.includes("Invalid login")) {
             setError("Identifiant ou code PIN incorrect");
+          } else if (
+            /Failed to fetch|NetworkError|Load failed|fetch/i.test(authError?.message ?? "") ||
+            authError?.status === 0
+          ) {
+            // Le téléphone croit être connecté, mais le serveur est injoignable
+            // (forfait épuisé, Wi-Fi sans internet, réseau coupé…)
+            setError(
+              "Serveur injoignable. La première connexion sur ce téléphone demande internet : vérifiez vos données mobiles (forfait, crédit) ou le Wi-Fi, puis réessayez. Ensuite, l'application fonctionnera sans connexion."
+            );
           } else {
             setError(authError?.message || "Erreur de connexion au serveur");
           }
