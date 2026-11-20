@@ -243,7 +243,13 @@ export async function GET(request: NextRequest) {
           .eq("agent_id", agentId)
           .order("cree_le", { ascending: false })
           .limit(500),
-        supabase.from("soldes_membres").select("*").eq("agent_id", agentId),
+        // La vue renvoie une ligne « volet NULL, solde 0 » pour les membres sans
+        // opération (LEFT JOIN) : inutile, et sans clé valide pour l'appareil.
+        supabase
+          .from("soldes_membres")
+          .select("*")
+          .eq("agent_id", agentId)
+          .not("volet", "is", null),
         supabase.from("parametres").select("*"),
         supabase
           .from("remises_collecte")

@@ -113,6 +113,21 @@ export async function purgeAgentData(): Promise<void> {
   );
 }
 
+/** Clé IndexedDB valide : texte non vide ou nombre. */
+function cleValide(v: unknown): boolean {
+  return (typeof v === "string" && v.length > 0) || (typeof v === "number" && Number.isFinite(v));
+}
+
+/** Garde les lignes dont tous les champs de clé sont valides (les autres sont ignorées). */
+function avecCles<T>(lignes: T[] | undefined | null, cles: string[]): T[] {
+  if (!lignes?.length) return [];
+  const ok = lignes.filter((l) => cles.every((c) => cleValide((l as Record<string, unknown>)?.[c])));
+  if (ok.length < lignes.length) {
+    console.warn(`[Dexie] ${lignes.length - ok.length} ligne(s) ignorée(s) : clé ${cles.join("+")} invalide.`);
+  }
+  return ok;
+}
+
 /**
  * Charge le portefeuille de l'agent depuis le serveur vers Dexie.
  * Appelé au premier login et après chaque synchronisation.
@@ -133,27 +148,35 @@ export async function loadPortfolio(data: PortefeuilleAgent): Promise<void> {
       await db.soldes.clear();
       await db.parametres.clear();
 
-      if (data.membres?.length) await db.membres.bulkPut(data.membres);
-      if (data.souscriptions?.length)
-        await db.souscriptions.bulkPut(data.souscriptions);
-      if (data.operations?.length)
-        await db.operations.bulkPut(data.operations);
-      if (data.soldes?.length) await db.soldes.bulkPut(data.soldes);
-      if (data.parametres?.length)
-        await db.parametres.bulkPut(data.parametres);
+      // Une ligne sans clé valide ferait échouer toute la transaction
+      // (« key path yielded a value that is not a valid key ») : on l'écarte.
+      const membres = avecCles(data.membres, ["id"]);
+      const souscriptions = avecCles(data.souscriptions, ["id"]);
+      const operations = avecCles(data.operations, ["id"]);
+      const soldes = avecCles(data.soldes, ["membre_id", "volet"]);
+      const parametres = avecCles(data.parametres, ["cle"]);
+
+      if (membres.length) await db.membres.bulkPut(membres);
+      if (souscriptions.length) await db.souscriptions.bulkPut(souscriptions);
+      if (operations.length) await db.operations.bulkPut(operations);
+      if (soldes.length) await db.soldes.bulkPut(soldes);
+      if (parametres.length) await db.parametres.bulkPut(parametres);
 
       // Décisions admin : remplacées seulement si le serveur les a fournies
       if (data.remises) {
         await db.remises.clear();
-        if (data.remises.length) await db.remises.bulkPut(data.remises);
+        const remises = avecCles(data.remises, ["id"]);
+        if (remises.length) await db.remises.bulkPut(remises);
       }
       if (data.credits) {
         await db.credits.clear();
-        if (data.credits.length) await db.credits.bulkPut(data.credits);
+        const credits = avecCles(data.credits, ["id"]);
+        if (credits.length) await db.credits.bulkPut(credits);
       }
       if (data.decisions) {
         await db.decisions.clear();
-        if (data.decisions.length) await db.decisions.bulkPut(data.decisions);
+        const decisions = avecCles(data.decisions, ["id"]);
+        if (decisions.length) await db.decisions.bulkPut(decisions);
       }
 
       // Ré-appliquer les écritures locales non encore confirmées par le serveur
