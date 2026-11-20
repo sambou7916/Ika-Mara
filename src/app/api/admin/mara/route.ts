@@ -284,6 +284,7 @@ export async function GET(request: NextRequest) {
           quartier: mInfo.quartier || "—",
           telephone: mInfo.telephone || "—",
           statut_membre: mInfo.statut || "actif",
+          agent_id: s.agent_id,
           agent_nom: mInfo.profiles?.nom || "—",
           agent_identifiant: mInfo.profiles?.identifiant || "—",
           cumul_depots: cumuls.depots,

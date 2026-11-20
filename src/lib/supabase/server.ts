@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Client Supabase côté serveur (Server Components, Route Handlers).
@@ -39,8 +40,7 @@ export function createServerSupabaseClient() {
  * Client Supabase avec la clé service (admin).
  * ⚠️ UNIQUEMENT côté serveur. Jamais exposé au client.
  */
-export function createServiceRoleClient() {
-  const { createClient } = require("@supabase/supabase-js");
+export function createServiceRoleClient(): SupabaseClient {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
