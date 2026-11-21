@@ -195,11 +195,18 @@ export default function AdminMaraPage() {
     }
   };
 
+  // Rechargement automatique : changement d'onglet, de dates, d'agent ou de
+  // recherche (la saisie est attendue 400 ms pour ne pas appeler le serveur
+  // à chaque touche).
   useEffect(() => {
-    startTransition(() => {
-      fetchData();
-    });
-  }, [activeTab]);
+    const minuteur = setTimeout(() => {
+      startTransition(() => {
+        fetchData();
+      });
+    }, 400);
+    return () => clearTimeout(minuteur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, dateDebut, dateFin, selectedAgent, search]);
 
   // Validation d'un retrait
   const handleValiderRetrait = async () => {
@@ -561,7 +568,7 @@ export default function AdminMaraPage() {
                 setDateFin("");
                 setSelectedAgent("");
                 setSearch("");
-                setTimeout(() => fetchData(), 50);
+                // Le rechargement suit automatiquement le changement des filtres
               }}
               className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
             >

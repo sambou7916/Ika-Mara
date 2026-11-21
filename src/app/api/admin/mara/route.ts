@@ -184,7 +184,16 @@ export async function GET(request: NextRequest) {
       if (error) throw error;
 
       // Filtrer les demandes en attente non encore décidées
-      const demandesEnAttente = (demandes || []).filter((d) => !idsTraites.has(d.id));
+      const demandesEnAttente = (demandes || []).filter((d: any) => {
+        if (idsTraites.has(d.id)) return false;
+        if (agentId && d.profiles?.id !== agentId) return false;
+        if (search) {
+          const m = d.membres;
+          const texte = `${m?.numero} ${m?.nom} ${m?.prenom} ${m?.telephone} ${m?.quartier}`;
+          if (!texte.toLowerCase().includes(search.toLowerCase())) return false;
+        }
+        return true;
+      });
 
       // 2 bis. Retraits déjà effectués (validés), les plus récents d'abord
       let queryEffectues = serviceRole
