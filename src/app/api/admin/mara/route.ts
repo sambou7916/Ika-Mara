@@ -186,8 +186,33 @@ export async function GET(request: NextRequest) {
       // Filtrer les demandes en attente non encore décidées
       const demandesEnAttente = (demandes || []).filter((d) => !idsTraites.has(d.id));
 
-      // 3. Récupérer le solde disponible pour chaque membre demandeur
-      const membreIds = Array.from(new Set(demandesEnAttente.map((d: any) => d.membres?.id).filter(Boolean)));
+      // 2 bis. Retraits déjà effectués (validés), les plus récents d'abord
+      let queryEffectues = serviceRole
+        .from("operations")
+        .select(`
+          id, montant, date_operation, cree_le, statut, motif,
+          membres:membre_id (id, numero, nom, prenom, telephone, quartier),
+          profiles:agent_id (id, nom, identifiant)
+        `)
+        .eq("volet", "mara")
+        .eq("type", "retrait")
+        .eq("statut", "validee")
+        .order("cree_le", { ascending: false })
+        .limit(100);
+      if (dateDebut) queryEffectues = queryEffectues.gte("date_operation", dateDebut);
+      if (dateFin) queryEffectues = queryEffectues.lte("date_operation", dateFin);
+      if (agentId) queryEffectues = queryEffectues.eq("agent_id", agentId);
+      const { data: effectuesRows, error: effectuesError } = await queryEffectues;
+      if (effectuesError) throw effectuesError;
+
+      // 3. Récupérer le solde disponible (actuel) de chaque membre concerné
+      const membreIds = Array.from(
+        new Set(
+          [...demandesEnAttente, ...(effectuesRows || [])]
+            .map((d: any) => d.membres?.id)
+            .filter(Boolean)
+        )
+      );
 
       let soldesMap: Record<string, number> = {};
       if (membreIds.length > 0) {
@@ -221,10 +246,25 @@ export async function GET(request: NextRequest) {
         };
       });
 
+      let retraitsEffectues = (effectuesRows || []).map((r: any) => ({
+        ...r,
+        solde_actuel: soldesMap[r.membres?.id] || 0,
+      }));
+      if (search) {
+        const q = search.toLowerCase();
+        retraitsEffectues = retraitsEffectues.filter((r: any) => {
+          const m = r.membres;
+          return `${m?.numero} ${m?.nom} ${m?.prenom} ${m?.telephone} ${m?.quartier}`
+            .toLowerCase()
+            .includes(q);
+        });
+      }
+
       return NextResponse.json({
         success: true,
         tab: "retraits",
         retraits: retraitsAvecSolde,
+        retraits_effectues: retraitsEffectues,
         parametres: parametresMara,
         agents: agents || [],
       });

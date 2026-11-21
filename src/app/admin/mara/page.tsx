@@ -70,6 +70,29 @@ interface RetraitItem {
   peut_valider: boolean;
 }
 
+interface RetraitEffectueItem {
+  id: string;
+  montant: number;
+  date_operation: string;
+  cree_le: string;
+  motif: string | null;
+  membres?: {
+    id: string;
+    numero: string;
+    nom: string;
+    prenom: string;
+    telephone: string | null;
+    quartier: string | null;
+  };
+  profiles?: {
+    id: string;
+    nom: string;
+    identifiant: string;
+  };
+  /** Solde d'épargne actuel du membre (après ce retrait et les suivants) */
+  solde_actuel: number;
+}
+
 interface SoldeItem {
   membre_id: string;
   numero: string;
@@ -118,6 +141,7 @@ export default function AdminMaraPage() {
 
   // Onglet 2 : Retraits à valider
   const [retraits, setRetraits] = useState<RetraitItem[]>([]);
+  const [retraitsEffectues, setRetraitsEffectues] = useState<RetraitEffectueItem[]>([]);
   const [retraitToValidate, setRetraitToValidate] = useState<RetraitItem | null>(null);
   const [retraitToRefuse, setRetraitToRefuse] = useState<RetraitItem | null>(null);
   const [refusMotif, setRefusMotif] = useState("");
@@ -159,6 +183,7 @@ export default function AdminMaraPage() {
         if (json.totaux) setTotauxDepots(json.totaux);
       } else if (activeTab === "retraits") {
         setRetraits(json.retraits || []);
+        setRetraitsEffectues(json.retraits_effectues || []);
       } else if (activeTab === "soldes") {
         setSoldes(json.soldes || []);
         setTotalEpargneNet(json.total_epargne_net || 0);
@@ -193,7 +218,13 @@ export default function AdminMaraPage() {
       if (!json.success) {
         throw new Error(json.error || "Échec de validation");
       }
-      setNotification({ type: "ok", msg: json.message || "Retrait validé avec succès." });
+      const r = retraitToValidate;
+      setNotification({
+        type: "ok",
+        msg: `Retrait de ${formatMontant(r.montant)} validé pour ${r.membres?.prenom ?? ""} ${
+          r.membres?.nom ?? ""
+        }. Solde restant : ${formatMontant(r.solde_disponible - r.montant)}.`,
+      });
       setRetraitToValidate(null);
       fetchData();
     } catch (err: unknown) {
@@ -772,7 +803,7 @@ export default function AdminMaraPage() {
                   </div>
 
                   {/* Détails financiers et règles de retrait */}
-                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3 text-xs">
+                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3 text-xs sm:grid-cols-3">
                     <div>
                       <span className="text-gray-500">Solde disponible :</span>
                       <p
@@ -781,6 +812,18 @@ export default function AdminMaraPage() {
                         }`}
                       >
                         {formatMontant(r.solde_disponible)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Reste après retrait :</span>
+                      <p
+                        className={`font-mono font-bold ${
+                          r.solde_suffisant ? "text-gray-900" : "text-rose-600"
+                        }`}
+                      >
+                        {r.solde_suffisant
+                          ? formatMontant(r.solde_disponible - r.montant)
+                          : `manque ${formatMontant(r.montant - r.solde_disponible)}`}
                       </p>
                     </div>
                     <div>
@@ -852,6 +895,74 @@ export default function AdminMaraPage() {
               ))}
             </div>
           )}
+
+          {/* Historique : retraits déjà effectués et solde restant du membre */}
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-base font-bold text-gray-900">
+                Retraits effectués ({retraitsEffectues.length})
+              </h2>
+              <p className="text-xs text-gray-500">
+                Montant retiré et ce qui reste aujourd&apos;hui sur l&apos;épargne du membre
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50/75 font-semibold text-gray-600">
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Adhérent</th>
+                    <th className="py-3 px-4">Agent</th>
+                    <th className="py-3 px-4 text-right">Montant retiré</th>
+                    <th className="py-3 px-4 text-right">Solde restant</th>
+                    <th className="py-3 px-4 text-center">Fiche</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {retraitsEffectues.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-500">
+                        Aucun retrait effectué pour le moment
+                      </td>
+                    </tr>
+                  ) : (
+                    retraitsEffectues.map((r) => (
+                      <tr key={r.id} className="hover:bg-gray-50/50">
+                        <td className="py-3 px-4 whitespace-nowrap text-gray-700">
+                          {formatDateTime(r.cree_le)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-gray-900">
+                            {r.membres?.prenom} {r.membres?.nom}
+                          </span>
+                          <span className="block font-mono text-xs text-gray-500">
+                            N° {r.membres?.numero}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-800">{r.profiles?.nom ?? "—"}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-rose-700 whitespace-nowrap">
+                          − {formatMontant(r.montant)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-800 whitespace-nowrap">
+                          {formatMontant(r.solde_actuel)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {r.membres?.id && (
+                            <Link
+                              href={`/admin/membres/${r.membres.id}`}
+                              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                              Voir →
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
