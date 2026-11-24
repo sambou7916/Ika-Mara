@@ -67,7 +67,7 @@ async function authentifierAgent(
   request: NextRequest,
   supabase: SupabaseClient,
   options: { enregistrer?: boolean } = {}
-): Promise<{ agentId: string } | NextResponse> {
+): Promise<{ agentId: string; profil: ProfilAgent } | NextResponse> {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return refus("SESSION_EXPIREE", 401);
 
@@ -80,7 +80,7 @@ async function authentifierAgent(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("statut, role, device_id")
+    .select("statut, role, device_id, nom, telephone")
     .eq("id", user.id)
     .single();
 
@@ -119,7 +119,38 @@ async function authentifierAgent(
     return refus("APPAREIL_REVOQUE", 403);
   }
 
-  return { agentId: user.id };
+  // Première connexion réussie d'un agent créé par l'admin : « nouveau » → « actif ».
+  // (Les règles RLS ne laissent lire les données qu'aux profils actifs.)
+  let statut: string = profile.statut;
+  if (statut === "nouveau") {
+    const { error: activationError } = await supabase
+      .from("profiles")
+      .update({ statut: "actif", modifie_le: new Date().toISOString() })
+      .eq("id", user.id)
+      .eq("statut", "nouveau");
+    if (activationError) {
+      console.error("[Sync] Activation de l'agent impossible :", activationError);
+    } else {
+      statut = "actif";
+      await supabase.from("audit_log").insert({
+        qui: user.id,
+        quoi: "activation_agent",
+        details: "Première connexion de l'agent : statut « nouveau » → « actif ».",
+      });
+    }
+  }
+
+  return {
+    agentId: user.id,
+    profil: { id: user.id, nom: profile.nom, telephone: profile.telephone ?? null, statut },
+  };
+}
+
+interface ProfilAgent {
+  id: string;
+  nom: string;
+  telephone: string | null;
+  statut: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -218,7 +249,7 @@ export async function GET(request: NextRequest) {
     const enregistrer = request.nextUrl.searchParams.get("enregistrer_appareil") === "1";
     const auth = await authentifierAgent(request, supabase, { enregistrer });
     if (auth instanceof NextResponse) return auth;
-    const { agentId } = auth;
+    const { agentId, profil } = auth;
 
     const { data: membresData, error: membresError } = await supabase
       .from("membres")
@@ -270,6 +301,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      // Profil de l'agent connecté (utilisé à la première connexion)
+      profil,
       data: {
         membres: membresData ?? [],
         souscriptions: souscriptions.data ?? [],

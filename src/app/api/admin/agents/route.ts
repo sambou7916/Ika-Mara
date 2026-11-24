@@ -82,7 +82,8 @@ export async function GET(request: NextRequest) {
     while (existingIds.includes(`AGT${String(nextNum).padStart(3, "0")}`) || existingIds.includes(`AGT-${String(nextNum).padStart(3, "0")}`)) {
       nextNum++;
     }
-    const prochainIdentifiant = `AGT-${String(nextNum).padStart(3, "0")}`;
+    // Même format que les comptes existants (AGT001), sans tiret
+    const prochainIdentifiant = `AGT${String(nextNum).padStart(3, "0")}`;
 
     // Agréger les données
     const agentsWithStats = (agents || []).map((agent) => {
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
         nom: nom.trim(),
         telephone: telephone?.trim() || null,
         identifiant: normId,
-        statut: "nouveau", // Nouveau par défaut, passe à actif à la 1ère connexion
+        statut: "nouveau", // Passe à « actif » à la 1ère connexion (voir /api/sync)
       })
       .select()
       .single();

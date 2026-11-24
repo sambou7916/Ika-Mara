@@ -21,6 +21,7 @@ import {
   validatePin,
 } from "@/lib/utils/pin";
 import Icon from "@/components/ui/Icon";
+import type { StatutProfil } from "@/lib/types";
 import { LoginShell, PillField, PillButton, PinOublie } from "@/components/auth/LoginShell";
 
 function AgentConnexionContent() {
@@ -224,28 +225,23 @@ function AgentConnexionContent() {
           return;
         }
 
-        // Vérifier le rôle et le statut
-        const { data: profile, error: profError } = await supabase
+        // Vérifier le rôle et le statut. Un agent tout juste créé (statut
+        // « nouveau ») ne peut pas encore lire son profil (RLS) : le serveur
+        // l'active et renvoie son profil lors du téléchargement ci-dessous.
+        const { data: profilDirect } = await supabase
           .from("profiles")
           .select("id, role, nom, telephone, statut")
           .eq("id", authData.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profError || !profile) {
-          await supabase.auth.signOut();
-          setError("Impossible de charger le profil agent.");
-          setLoading(false);
-          return;
-        }
-
-        if (profile.statut === "suspendu") {
+        if (profilDirect?.statut === "suspendu") {
           await supabase.auth.signOut();
           setError("Votre compte est suspendu. Veuillez contacter votre administrateur.");
           setLoading(false);
           return;
         }
 
-        if (profile.role !== "agent") {
+        if (profilDirect && profilDirect.role !== "agent") {
           await supabase.auth.signOut();
           setError("Accès réservé aux agents de collecte.");
           setLoading(false);
@@ -290,6 +286,19 @@ function AgentConnexionContent() {
         const syncData = await syncResponse.json();
         if (syncData.data) {
           await loadPortfolio(syncData.data);
+        }
+
+        const profile = (syncData.profil ?? profilDirect) as {
+          id: string;
+          nom: string;
+          telephone: string | null;
+          statut: StatutProfil;
+        } | null;
+        if (!profile) {
+          await supabase.auth.signOut();
+          setError("Impossible de charger le profil agent. Réessayez dans un instant.");
+          setLoading(false);
+          return;
         }
 
         // Calculer et stocker le hash PBKDF2 localement
